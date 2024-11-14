@@ -158,3 +158,13 @@ func generateSignedTokenWithQuery(ctx context.Context, rf RequestForm) (string, 
 
 	return signedToken, nil
 }
+
+func validateTimeString(to string) error {
+	if to != "" {
+		_, err := time.Parse("2006-01-02 15:04:05", to)
+		if err != nil {
+			return fmt.Errorf("error parsing time: %s", err.Error())
+		}
+	}
+	return nil
+}
