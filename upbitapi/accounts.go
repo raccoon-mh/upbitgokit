@@ -16,12 +16,6 @@ type AccountInfo struct {
 
 type AccountInfos []AccountInfo
 
-func getAccounts(ctx context.Context) (*AccountInfos, error) {
-	// var accountInfos AccountInfos
-	// accountInfos, err := commonRestGet(ctx, accountsEndPoint)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return &accountInfos, nil
-	return nil, nil
+func AccountsGet(ctx context.Context) (*AccountInfos, error) {
+	return commonAnyCaller(ctx, accountsEndPoint, RequestForm{}, &AccountInfos{})
 }

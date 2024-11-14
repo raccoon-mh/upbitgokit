@@ -3,40 +3,28 @@ package config
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 )
 
+type contextKey string
+
+const ConfigKey contextKey = "credential"
+
 type Credential struct {
-	Tag       string `yaml:"tag"`
-	AccessKey string `yaml:"accesskey"`
-	SecretKey string `yaml:"secretkey"`
+	AccessKey string
+	SecretKey string
 }
 
-type configCredential struct {
-	Credentials []Credential
+func SetCtxCredential(ctx context.Context, cred Credential) (context.Context, error) {
+	return context.WithValue(ctx, ConfigKey, cred), nil
 }
 
-func NewCredentials(ctx context.Context, tag string) (Credential, error) {
-	if tag == "" {
-		return Credential{}, fmt.Errorf("credential tag is not provided")
-	}
-	var cfgCred configCredential
-	cfgCred = getAllConfig(defaultSharedCredentialsFilename(), cfgCred).(configCredential)
-	getCredByTag := func(creds []Credential, tag string) (Credential, error) {
-		for _, cred := range creds {
-			if cred.Tag == tag {
-				return cred, nil
-			}
+func GetCtxCredential(ctx context.Context) (Credential, error) {
+	if value := ctx.Value(ConfigKey); value != nil {
+		if credential, ok := value.(Credential); ok {
+			return credential, nil
+		} else {
+			return Credential{}, fmt.Errorf("credential setting is invalid")
 		}
-		return Credential{}, fmt.Errorf("no credential found for tag[%s]", tag)
 	}
-	cred, err := getCredByTag(cfgCred.Credentials, tag)
-	if err != nil {
-		return getCredByTag(cfgCred.Credentials, "default")
-	}
-	return cred, nil
-}
-
-func defaultSharedCredentialsFilename() string {
-	return filepath.Join(configPath, "credentials.yaml")
+	return Credential{}, fmt.Errorf("credential has not been set up yet")
 }

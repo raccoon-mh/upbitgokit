@@ -3,6 +3,8 @@ package upbitapi
 // restapi v1.5.4 stable https://docs.upbit.com/v1.5.4/reference
 
 const (
+	serverHost = "https://api.upbit.com"
+
 	// ######## Exchange API ########
 
 	//
