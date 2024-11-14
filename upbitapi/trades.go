@@ -44,13 +44,11 @@ func TradesTicksGet(ctx context.Context, market string, to string, count int32, 
 	if err := validateTimeString(to); err != nil {
 		return nil, err
 	}
-
 	reqform := RequestForm{
 		QueryParams: map[string]interface{}{
 			"market": market,
 		},
 	}
-
 	if to != "" {
 		reqform.QueryParams["to"] = to
 	}
@@ -63,7 +61,5 @@ func TradesTicksGet(ctx context.Context, market string, to string, count int32, 
 	if daysAgo > 0 && daysAgo <= 7 {
 		reqform.QueryParams["days_ago"] = daysAgo
 	}
-
-	// API 호출
 	return commonAnyCaller(ctx, tradesTicksEndPoint, reqform, &TradesTicksGetResponses{})
 }
