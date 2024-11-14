@@ -144,6 +144,10 @@ const (
 	// ******** 시세 캔들 조회 ********
 	//
 
+	// 초(Second) 캔들
+	// https://docs.upbit.com/reference/%EC%B4%88second-%EC%BA%94%EB%93%A4
+	candlesSecondsEndPoint = "/v1/candles/seconds:get"
+
 	// 분(Minute) 캔들
 	// https://docs.upbit.com/reference/%EB%B6%84minute-%EC%BA%94%EB%93%A4-1
 	candlesMinutesUnitEndPoint = "/v1/candles/minutes/{unit}:get"
