@@ -2,8 +2,6 @@ package upbitapi
 
 import (
 	"context"
-	"fmt"
-	"time"
 )
 
 type CandlesGetResponse struct {
@@ -22,61 +20,57 @@ type CandlesGetResponse struct {
 
 type CandlesGetResponses []CandlesGetResponse
 
-func parseTimeString(timeStr string) (time.Time, error) {
-	parsedTime, err := time.Parse("2006-01-02 15:04:05", timeStr)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("error parsing time: %s", err.Error())
-	}
-	return parsedTime, nil
-}
-
-// 초(Second) 캔들
+// 초(Second) 캔들 조회
 // market (string):
 //   - 종목 코드 (예: KRW-BTC)
 //
-// to (string):
+// to (string, optional):
 //   - 마지막 캔들 시각 (exclusive)
+//   - 형식: [yyyy-MM-dd HH:mm:ss]
 //   - 비워서 요청 시 가장 최근 캔들을 반환
 //
-// count (int32):
+// count (int32, optional):
 //   - 캔들 개수 (최대 200개까지 요청 가능)
 //
 // https://docs.upbit.com/reference/%EC%B4%88second-%EC%BA%94%EB%93%A4
 func CandlesSecondsGet(ctx context.Context, market string, to string, count int32) (*CandlesGetResponses, error) {
-	_, err := parseTimeString(to)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing time : %s", err.Error())
+	if err := validateTimeString(to); err != nil {
+		return nil, err
 	}
 	reqform := RequestForm{
 		QueryParams: map[string]interface{}{
 			"market": market,
-			"to":     to,
-			"count":  count,
 		},
+	}
+	if to != "" {
+		reqform.QueryParams["to"] = to
+	}
+	if count > 0 {
+		reqform.QueryParams["count"] = count
 	}
 	return commonAnyCaller(ctx, candlesSecondsEndPoint, reqform, &CandlesGetResponses{})
 }
 
-// 분(Minute) 캔들
-// unit (int32):
+// 분(Minute) 캔들 조회
+// unit (int32, required):
 //   - 분 단위
 //   - 가능한 값: 1, 3, 5, 10, 15, 30, 60, 240
 //
-// market (string):
+// market (string, required):
 //   - 종목 코드 (예: KRW-BTC)
 //
-// to (string):
+// to (string, optional):
 //   - 마지막 캔들 시각 (exclusive)
+//   - 형식: [yyyy-MM-dd HH:mm:ss]
 //   - 비워서 요청 시 가장 최근 캔들을 반환
 //
-// count (int32):
+// count (int32, optional):
 //   - 캔들 개수 (최대 200개까지 요청 가능)
 //
 // https://docs.upbit.com/reference/%EB%B6%84minute-%EC%BA%94%EB%93%A4-1
 func CandlesMinutesUnitGet(ctx context.Context, unit int32, market string, to string, count int32) (*CandlesGetResponses, error) {
-	_, err := parseTimeString(to)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing time : %s", err.Error())
+	if err := validateTimeString(to); err != nil {
+		return nil, err
 	}
 	reqform := RequestForm{
 		PathParams: map[string]interface{}{
@@ -84,90 +78,106 @@ func CandlesMinutesUnitGet(ctx context.Context, unit int32, market string, to st
 		},
 		QueryParams: map[string]interface{}{
 			"market": market,
-			"to":     to,
-			"count":  count,
 		},
+	}
+	if to != "" {
+		reqform.QueryParams["to"] = to
+	}
+	if count > 0 {
+		reqform.QueryParams["count"] = count
 	}
 	return commonAnyCaller(ctx, candlesMinutesUnitEndPoint, reqform, &CandlesGetResponses{})
 }
 
-// 일(Day) 캔들
-// market (string):
+// 일(Day) 캔들 조회
+// market (string, required):
 //   - 종목 코드 (예: KRW-BTC)
 //
-// to (string):
+// to (string, optional):
 //   - 마지막 캔들 시각 (exclusive)
+//   - 형식: [yyyy-MM-dd HH:mm:ss]
 //   - 비워서 요청 시 가장 최근 캔들을 반환
 //
-// count (int32):
+// count (int32, optional):
 //   - 캔들 개수 (최대 200개까지 요청 가능)
 //
-// https://docs.upbit.com/reference/%EB%B6%84minute-%EC%BA%94%EB%93%A4-1
+// https://docs.upbit.com/reference/%EC%9D%BCday-%EC%BA%94%EB%93%A4-1
 func CandlesDaysGet(ctx context.Context, market string, to string, count int32) (*CandlesGetResponses, error) {
-	_, err := parseTimeString(to)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing time : %s", err.Error())
+	if err := validateTimeString(to); err != nil {
+		return nil, err
 	}
 	reqform := RequestForm{
 		QueryParams: map[string]interface{}{
 			"market": market,
-			"to":     to,
-			"count":  count,
 		},
+	}
+	if to != "" {
+		reqform.QueryParams["to"] = to
+	}
+	if count > 0 {
+		reqform.QueryParams["count"] = count
 	}
 	return commonAnyCaller(ctx, candlesDaysEndPoint, reqform, &CandlesGetResponses{})
 }
 
-// 주(Week) 캔들
-// market (string):
+// 주(Week) 캔들 조회
+// market (string, required):
 //   - 종목 코드 (예: KRW-BTC)
 //
-// to (string):
+// to (string, optional):
 //   - 마지막 캔들 시각 (exclusive)
+//   - 형식: [yyyy-MM-dd HH:mm:ss]
 //   - 비워서 요청 시 가장 최근 캔들을 반환
 //
-// count (int32):
+// count (int32, optional):
 //   - 캔들 개수 (최대 200개까지 요청 가능)
 //
 // https://docs.upbit.com/reference/%EC%A3%BCweek-%EC%BA%94%EB%93%A4-1
 func CandlesWeeksGet(ctx context.Context, market string, to string, count int32) (*CandlesGetResponses, error) {
-	_, err := parseTimeString(to)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing time : %s", err.Error())
+	if err := validateTimeString(to); err != nil {
+		return nil, err
 	}
 	reqform := RequestForm{
 		QueryParams: map[string]interface{}{
 			"market": market,
-			"to":     to,
-			"count":  count,
 		},
+	}
+	if to != "" {
+		reqform.QueryParams["to"] = to
+	}
+	if count > 0 {
+		reqform.QueryParams["count"] = count
 	}
 	return commonAnyCaller(ctx, candlesWeeksEndPoint, reqform, &CandlesGetResponses{})
 }
 
-// 월(Month) 캔들
-// market (string):
+// 월(Month) 캔들 조회
+// market (string, required):
 //   - 종목 코드 (예: KRW-BTC)
 //
-// to (string):
+// to (string, optional):
 //   - 마지막 캔들 시각 (exclusive)
+//   - 형식: [yyyy-MM-dd HH:mm:ss]
 //   - 비워서 요청 시 가장 최근 캔들을 반환
 //
-// count (int32):
+// count (int32, optional):
 //   - 캔들 개수 (최대 200개까지 요청 가능)
 //
-// https://docs.upbit.com/reference/%EC%A3%BCweek-%EC%BA%94%EB%93%A4-1
+// https://docs.upbit.com/reference/%EC%9B%94month-%EC%BA%94%EB%93%A4-1
 func CandlesMonthGet(ctx context.Context, market string, to string, count int32) (*CandlesGetResponses, error) {
-	_, err := parseTimeString(to)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing time : %s", err.Error())
+	if err := validateTimeString(to); err != nil {
+		return nil, err
 	}
 	reqform := RequestForm{
 		QueryParams: map[string]interface{}{
 			"market": market,
-			"to":     to,
-			"count":  count,
 		},
+	}
+	if to != "" {
+		reqform.QueryParams["to"] = to
+	}
+	if count > 0 {
+		reqform.QueryParams["count"] = count
 	}
 	return commonAnyCaller(ctx, candlesMonthsEndPoint, reqform, &CandlesGetResponses{})
 }
