@@ -2,11 +2,14 @@ package upbitapi
 
 import (
 	"context"
+	"crypto/sha512"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 	cfg "upbitapi/config"
@@ -44,30 +47,58 @@ func commonAnyCaller[AnyStruct any](ctx context.Context, mep string, rf RequestF
 }
 
 func restGet[AnyStruct any](ctx context.Context, ep string, rf RequestForm, ast AnyStruct) (AnyStruct, error) {
-	req, err := http.NewRequest(http.MethodGet, serverHost+ep, nil)
+	if len(rf.PathParams) > 0 {
+		for key, value := range rf.PathParams {
+			placeholder := fmt.Sprintf("{%s}", key)
+			ep = strings.ReplaceAll(ep, placeholder, fmt.Sprintf("%v", value))
+		}
+	}
+
+	reqURL := serverHost + ep
+	if len(rf.QueryParams) > 0 {
+		query := url.Values{}
+		for key, value := range rf.QueryParams {
+			query.Add(key, fmt.Sprintf("%v", value))
+		}
+		reqURL = reqURL + "?" + query.Encode()
+	}
+
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
 	if err != nil {
 		return ast, fmt.Errorf("newRequest Error : %s", err.Error())
 	}
-	jwtToken, err := generateSignedToken(ctx)
+
+	var jwtToken string
+	if len(rf.QueryParams) > 0 {
+		jwtToken, err = generateSignedTokenWithQuery(ctx, rf)
+	} else {
+		jwtToken, err = generateSignedToken(ctx)
+	}
 	if err != nil {
 		return ast, err
 	}
+
 	req.Header.Set("Authorization", "Bearer "+jwtToken)
+	req.Header.Set("Accept", "application/json")
+
 	resp, err := commonClient.Do(req)
 	if err != nil {
 		log.Printf("commonClient Error : %s", err.Error())
 		return ast, err
 	}
 	defer resp.Body.Close()
+
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return ast, fmt.Errorf("io.ReadAll Error : %s", err.Error())
 	}
+
 	err = json.Unmarshal(respBody, &ast)
 	if err != nil {
 		log.Println("err respBody is :", string(respBody))
 		return ast, fmt.Errorf("unmarshal Error : %s", err.Error())
 	}
+
 	return ast, nil
 }
 
@@ -86,5 +117,44 @@ func generateSignedToken(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return signedToken, nil
+}
+
+func generateSignedTokenWithQuery(ctx context.Context, rf RequestForm) (string, error) {
+	cred, err := cfg.GetCtxCredential(ctx)
+	if err != nil {
+		log.Println("error while GetCtxCredential :", err.Error())
+		return "", err
+	}
+
+	claims := jwt.MapClaims{
+		"access_key": cred.AccessKey,
+		"nonce":      uuid.New().String(),
+	}
+
+	if len(rf.QueryParams) > 0 {
+		queryParams := url.Values{}
+		for key, value := range rf.QueryParams {
+			queryParams.Add(key, fmt.Sprintf("%v", value))
+		}
+		queryString := queryParams.Encode()
+
+		hasher := sha512.New()
+		_, err := hasher.Write([]byte(queryString))
+		if err != nil {
+			return "", fmt.Errorf("failed to write hash: %v", err)
+		}
+		queryHash := hex.EncodeToString(hasher.Sum(nil))
+
+		claims["query_hash"] = queryHash
+		claims["query_hash_alg"] = "SHA512"
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedToken, err := token.SignedString([]byte(cred.SecretKey))
+	if err != nil {
+		return "", err
+	}
+
 	return signedToken, nil
 }
