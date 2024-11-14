@@ -4,7 +4,7 @@ import (
 	"context"
 )
 
-type AccountInfo struct {
+type AccountsGetResponse struct {
 	AvgBuyPrice         string `json:"avg_buy_price"`
 	AvgBuyPriceModified bool   `json:"avg_buy_price_modified"`
 	Balance             string `json:"balance"`
@@ -14,8 +14,8 @@ type AccountInfo struct {
 	HttpErr             error  `json:"error"`
 }
 
-type AccountInfos []AccountInfo
+type AccountsGetResponses []AccountsGetResponse
 
-func AccountsGet(ctx context.Context) (*AccountInfos, error) {
-	return commonAnyCaller(ctx, accountsEndPoint, RequestForm{}, &AccountInfos{})
+func AccountsGet(ctx context.Context) (*AccountsGetResponses, error) {
+	return commonAnyCaller(ctx, accountsEndPoint, RequestForm{}, &AccountsGetResponses{})
 }
