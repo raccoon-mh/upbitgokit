@@ -1,4 +1,4 @@
-package restapi
+package upbitapi
 
 import (
 	"context"
@@ -16,11 +16,12 @@ type AccountInfo struct {
 
 type AccountInfos []AccountInfo
 
-func Accounts(ctx context.Context) (*AccountInfos, error) {
-	var accountInfos AccountInfos
-	accountInfos, err := commonRestGet(ctx, accountsEndPoint, accountInfos)
-	if err != nil {
-		return nil, err
-	}
-	return &accountInfos, nil
+func getAccounts(ctx context.Context) (*AccountInfos, error) {
+	// var accountInfos AccountInfos
+	// accountInfos, err := commonRestGet(ctx, accountsEndPoint)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// return &accountInfos, nil
+	return nil, nil
 }

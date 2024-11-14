@@ -1,4 +1,4 @@
-module raccoon-upbit-trader
+module upbitapi
 
 go 1.22.4
 

@@ -6,14 +6,26 @@ import (
 	"log"
 	"strings"
 
-	"raccoon-upbit-trader/config"
-	"raccoon-upbit-trader/restapi"
+	"upbitapi/config"
 )
 
 func main() {
 	serverURL := "https://api.upbit.com"
 
 	ctx := context.Background()
+
+	var err error
+	ctx, err = config.LoadConfig(ctx, "default")
+	if err != nil {
+		log.Println(err)
+	}
+
+	cfg, err := config.GetCtxAllConfig(ctx)
+	if err != nil {
+		log.Println(err)
+	}
+
+	printStructFields(cfg)
 
 	for {
 		fmt.Println("")
@@ -37,7 +49,7 @@ func main() {
 
 			case 1:
 				fmt.Println("")
-				result, err := restapi.Accounts(ctx)
+				result, err := upbitapi.Accounts(ctx)
 				if err != nil {
 					log.Println(err)
 				}
@@ -65,7 +77,7 @@ func main() {
 			case 4:
 				fmt.Println("")
 				var err error
-				ctx, err = config.LoadConfig(ctx, "default")
+				ctx, err = restapi.DepositsKrw(ctx, "default")
 				if err != nil {
 					log.Println(err)
 				}

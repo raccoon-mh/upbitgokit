@@ -15,7 +15,7 @@ func init() {
 	if configPathENV != "" {
 		configPath = configPathENV
 	} else {
-		configPath = userBaseDir() + "/.raccoon-upbit-trader"
+		configPath = userBaseDir() + "/.upbitapi"
 	}
 }
 
