@@ -127,7 +127,7 @@ const (
 	statusWalletEndPoint = "/v1/status/wallet:get"
 
 	// API 키 리스트 조회
-	// https://docs.upbit.com/reference/%EC%9E%85%EC%B6%9C%EA%B8%88-%ED%98%84%ED%99%A9
+	// https://docs.upbit.com/reference/open-api-%ED%82%A4-%EB%A6%AC%EC%8A%A4%ED%8A%B8-%EC%A1%B0%ED%9A%8C
 	apiKeysEndPoint = "/v1/api_keys:get"
 
 	// ######## Quotation API ########
