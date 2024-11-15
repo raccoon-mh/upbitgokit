@@ -28,6 +28,10 @@ type RequestForm struct {
 	RequestBody map[string]interface{}
 }
 
+// ctx : setup 완료된 컨텍스트
+// mep : method and endpoint, const.go에 정의됨
+// rf : requestform - path, query, req
+// ast : any response struct
 func commonAnyCaller[AnyStruct any](ctx context.Context, mep string, rf RequestForm, ast AnyStruct) (AnyStruct, error) {
 	p := strings.Split(mep, ":")
 	if len(p) != 2 {
@@ -53,7 +57,6 @@ func restGet[AnyStruct any](ctx context.Context, ep string, rf RequestForm, ast 
 			ep = strings.ReplaceAll(ep, placeholder, fmt.Sprintf("%v", value))
 		}
 	}
-
 	reqURL := serverHost + ep
 	if len(rf.QueryParams) > 0 {
 		query := url.Values{}
@@ -62,12 +65,10 @@ func restGet[AnyStruct any](ctx context.Context, ep string, rf RequestForm, ast 
 		}
 		reqURL = reqURL + "?" + query.Encode()
 	}
-
 	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
 	if err != nil {
 		return ast, fmt.Errorf("newRequest Error : %s", err.Error())
 	}
-
 	var jwtToken string
 	if len(rf.QueryParams) > 0 {
 		jwtToken, err = generateSignedTokenWithQuery(ctx, rf)
@@ -77,28 +78,23 @@ func restGet[AnyStruct any](ctx context.Context, ep string, rf RequestForm, ast 
 	if err != nil {
 		return ast, err
 	}
-
 	req.Header.Set("Authorization", "Bearer "+jwtToken)
 	req.Header.Set("Accept", "application/json")
-
 	resp, err := commonClient.Do(req)
 	if err != nil {
 		log.Printf("commonClient Error : %s", err.Error())
 		return ast, err
 	}
 	defer resp.Body.Close()
-
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return ast, fmt.Errorf("io.ReadAll Error : %s", err.Error())
 	}
-
 	err = json.Unmarshal(respBody, &ast)
 	if err != nil {
 		log.Println("err respBody is :", string(respBody))
 		return ast, fmt.Errorf("unmarshal Error : %s", err.Error())
 	}
-
 	return ast, nil
 }
 
@@ -126,36 +122,30 @@ func generateSignedTokenWithQuery(ctx context.Context, rf RequestForm) (string, 
 		log.Println("error while GetCtxCredential :", err.Error())
 		return "", err
 	}
-
 	claims := jwt.MapClaims{
 		"access_key": cred.AccessKey,
 		"nonce":      uuid.New().String(),
 	}
-
 	if len(rf.QueryParams) > 0 {
 		queryParams := url.Values{}
 		for key, value := range rf.QueryParams {
 			queryParams.Add(key, fmt.Sprintf("%v", value))
 		}
 		queryString := queryParams.Encode()
-
 		hasher := sha512.New()
 		_, err := hasher.Write([]byte(queryString))
 		if err != nil {
 			return "", fmt.Errorf("failed to write hash: %v", err)
 		}
 		queryHash := hex.EncodeToString(hasher.Sum(nil))
-
 		claims["query_hash"] = queryHash
 		claims["query_hash_alg"] = "SHA512"
 	}
-
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signedToken, err := token.SignedString([]byte(cred.SecretKey))
 	if err != nil {
 		return "", err
 	}
-
 	return signedToken, nil
 }
 
