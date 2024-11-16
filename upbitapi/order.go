@@ -105,7 +105,6 @@ func OrderGet(ctx context.Context, uuid, identifier string) (*OrderGetResponse, 
 	return commonAnyCaller(ctx, orderEndPoint, reqform, &OrderGetResponse{})
 }
 
-// Response 구조체 설명
 type OrdersPostResponse struct {
 	Uuid            string `json:"uuid"`             // 주문의 고유 아이디
 	Side            string `json:"side"`             // 주문 종류
@@ -127,50 +126,39 @@ type OrdersPostResponse struct {
 
 // 주문하기
 // Request Parameters
-// Name          설명                                                                            타입
-// market *      마켓 ID (필수)                                                               String
-//               - 예: "KRW-BTC"
-// side *        주문 종류 (필수)                                                              String
-//               - bid: 매수
-//               - ask: 매도
-// volume *      주문량 (지정가, 시장가 매도 시 필수)                                         float64
-// price *       주문 가격. (지정가, 시장가 매수 시 필수)                                     NumberString
-//               - 예: KRW-BTC 마켓에서 1BTC당 1,000 KRW로 거래할 경우 값은 "1000"
-//               - 예: KRW-BTC 마켓에서 1BTC당 매도 1호가가 500 KRW인 경우,
-//                      시장가 매수 시 값을 "1000"으로 세팅하면 2BTC 매수 가능 (수수료 영향 있음)
-// ord_type *    주문 타입 (필수)                                                              String
-//               - limit: 지정가 주문
-//               - price: 시장가 주문 (매수)
-//               - market: 시장가 주문 (매도)
-//               - best: 최유리 주문 (time_in_force 설정 필수)
-// identifier    조회용 사용자 지정 값 (선택)                                                 String (Uniq 값 사용)
-//               - 주문을 조회하기 위한 고유 값
-//               - 중복 값이 들어오면 오류 발생
-// time_in_force IOC, FOK 주문 설정 *                                                         String
-//               - ioc: Immediate or Cancel
-//               - fok: Fill or Kill
-//               * ord_type이 best 혹은 limit일 때만 지원
-
-// 원화 마켓에서 주문할 경우, 원화 마켓 주문 가격 단위를 확인하여 값을 입력하세요.
+// Name          설명 타입
+// market *      마켓 ID (필수) String
+//   - 예: "KRW-BTC"
+//
+// side *        주문 종류 (필수) String
+//   - bid: 매수
+//   - ask: 매도
+//
+// volume *      주문량 (지정가, 시장가 매도 시 필수) NumberString
+// price *       주문 가격. (지정가, 시장가 매수 시 필수) NumberString
+//   - 예: KRW-BTC 마켓에서 1BTC당 1,000 KRW로 거래할 경우 값은 "1000"
+//   - 예: KRW-BTC 마켓에서 1BTC당 매도 1호가가 500 KRW인 경우,
+//     시장가 매수 시 값을 "1000"으로 세팅하면 2BTC 매수 가능 (수수료 영향 있음)
+//
+// ord_type *    주문 타입 (필수) String
+//   - limit: 지정가 주문
+//   - price: 시장가 주문 (매수)
+//   - market: 시장가 주문 (매도)
+//   - best: 최유리 주문 (time_in_force 설정 필수)
+//
+// identifier    조회용 사용자 지정 값 (선택) String (Uniq 값 사용)
+//   - 주문을 조회하기 위한 고유 값
+//   - 중복 값이 들어오면 오류 발생
 //
 // identifier 주의사항:
 // - 서비스에서 발급하는 UUID가 아닌, 사용자가 직접 발급하는 키 값이어야 함
 // - 중복된 값으로 요청 시 중복 오류 발생
 // - 매 요청 시 새로운 값을 생성해야 함
-// 시장가 주문 사용법:
-// - 매수:
-//   - ord_type: price
-//   - side: bid
-//   - volume: null 또는 제외
-//   - price: 필수 입력
 //
-// - 매도:
-//   - ord_type: market
-//   - side: ask
-//   - volume: 필수 입력
-//   - price: null 또는 제외
-//
-// - 시장가 주문은 ioc, fok를 지원하지 않음
+// time_in_force IOC, FOK 주문 설정 * String
+//   - ioc: Immediate or Cancel
+//   - fok: Fill or Kill
+//   - ord_type이 best 혹은 limit일 때만 지원
 //
 // https://docs.upbit.com/reference/%EC%A3%BC%EB%AC%B8%ED%95%98%EA%B8%B0
 func OrdersPost(ctx context.Context, market string, side string, volume float64, price int64, orderType, identifier, timeinforce string) (*OrdersPostResponse, error) {
