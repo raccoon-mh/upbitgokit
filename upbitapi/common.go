@@ -1,6 +1,7 @@
 package upbitapi
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha512"
 	"encoding/hex"
@@ -42,7 +43,7 @@ func commonAnyCaller[AnyStruct any](ctx context.Context, mep string, rf RequestF
 	case http.MethodGet:
 		return restGet(ctx, u, rf, ast)
 	case http.MethodPost:
-		return restGet(ctx, u, rf, ast)
+		return restPost(ctx, u, rf, ast)
 	case http.MethodDelete:
 		return restGet(ctx, u, rf, ast)
 	default:
@@ -86,6 +87,67 @@ func restGet[AnyStruct any](ctx context.Context, ep string, rf RequestForm, ast 
 		return ast, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return ast, fmt.Errorf("io.ReadAll Error while %s : %s", resp.Status, err.Error())
+		}
+		return ast, fmt.Errorf("%s : %s", resp.Status, string(respBody))
+	}
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ast, fmt.Errorf("io.ReadAll Error : %s", err.Error())
+	}
+	err = json.Unmarshal(respBody, &ast)
+	if err != nil {
+		log.Println("err respBody is :", string(respBody))
+		return ast, fmt.Errorf("unmarshal Error : %s", err.Error())
+	}
+	return ast, nil
+}
+
+func restPost[AnyStruct any](ctx context.Context, ep string, rf RequestForm, ast AnyStruct) (AnyStruct, error) {
+	if len(rf.PathParams) > 0 {
+		for key, value := range rf.PathParams {
+			placeholder := fmt.Sprintf("{%s}", key)
+			ep = strings.ReplaceAll(ep, placeholder, fmt.Sprintf("%v", value))
+		}
+	}
+	reqURL := serverHost + ep
+	jsonData, err := json.Marshal(rf.RequestBody)
+	if err != nil {
+		return ast, fmt.Errorf("RequestBody Error : %s", err.Error())
+	}
+	req, err := http.NewRequest(http.MethodPost, reqURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return ast, fmt.Errorf("newRequest Error : %s", err.Error())
+	}
+
+	var jwtToken string
+	if len(rf.RequestBody) > 0 {
+		jwtToken, err = generateSignedTokenWithRequestBody(ctx, rf)
+	} else {
+		jwtToken, err = generateSignedToken(ctx)
+	}
+	if err != nil {
+		return ast, err
+	}
+	req.Header.Set("Authorization", "Bearer "+jwtToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := commonClient.Do(req)
+	if err != nil {
+		log.Printf("commonClient Error : %s", err.Error())
+		return ast, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return ast, fmt.Errorf("io.ReadAll Error while %s : %s", resp.Status, err.Error())
+		}
+		return ast, fmt.Errorf("%s : %s", resp.Status, string(respBody))
+	}
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return ast, fmt.Errorf("io.ReadAll Error : %s", err.Error())
@@ -129,6 +191,39 @@ func generateSignedTokenWithQuery(ctx context.Context, rf RequestForm) (string, 
 	if len(rf.QueryParams) > 0 {
 		queryParams := url.Values{}
 		for key, value := range rf.QueryParams {
+			queryParams.Add(key, fmt.Sprintf("%v", value))
+		}
+		queryString := queryParams.Encode()
+		hasher := sha512.New()
+		_, err := hasher.Write([]byte(queryString))
+		if err != nil {
+			return "", fmt.Errorf("failed to write hash: %v", err)
+		}
+		queryHash := hex.EncodeToString(hasher.Sum(nil))
+		claims["query_hash"] = queryHash
+		claims["query_hash_alg"] = "SHA512"
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedToken, err := token.SignedString([]byte(cred.SecretKey))
+	if err != nil {
+		return "", err
+	}
+	return signedToken, nil
+}
+
+func generateSignedTokenWithRequestBody(ctx context.Context, rf RequestForm) (string, error) {
+	cred, err := cfg.GetCtxCredential(ctx)
+	if err != nil {
+		log.Println("error while GetCtxCredential :", err.Error())
+		return "", err
+	}
+	claims := jwt.MapClaims{
+		"access_key": cred.AccessKey,
+		"nonce":      uuid.New().String(),
+	}
+	if len(rf.RequestBody) > 0 {
+		queryParams := url.Values{}
+		for key, value := range rf.RequestBody {
 			queryParams.Add(key, fmt.Sprintf("%v", value))
 		}
 		queryString := queryParams.Encode()
