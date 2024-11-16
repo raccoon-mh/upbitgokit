@@ -27,6 +27,12 @@ const (
 	// https://docs.upbit.com/reference/%EA%B0%9C%EB%B3%84-%EC%A3%BC%EB%AC%B8-%EC%A1%B0%ED%9A%8C
 	orderEndPoint = "/v1/order:get"
 
+	// 주문 리스트 조회
+	// https://docs.upbit.com/reference/%EC%A3%BC%EB%AC%B8-%EB%A6%AC%EC%8A%A4%ED%8A%B8-%EC%A1%B0%ED%9A%8C
+	// Deprecated (2024.06~)
+	// 	GET v1/orders 를 사용중이실 경우, 용도에 따라 v1/orders/uuids ,v1/orders/open ,v1/orders/closed로 변경해주시기 바랍니다.
+	// 	정확한 지원종료 예정일은 추후 공지사항을 통해 다시 안내드리겠습니다.
+
 	// id로 주문리스트 조회
 	// https://docs.upbit.com/reference/id%EB%A1%9C-%EC%A3%BC%EB%AC%B8-%EC%A1%B0%ED%9A%8C
 	orderUuidsEndPoint = "/v1/orders/uuids:get"
