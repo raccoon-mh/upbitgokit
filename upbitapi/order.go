@@ -199,3 +199,105 @@ func OrdersPost(ctx context.Context, market string, side string, volume float64,
 
 	return commonAnyCaller(ctx, ordersEndPoint, reqform, &OrdersPostResponse{})
 }
+
+type OrdersClosedGetResponse struct {
+	UUID            string        `json:"uuid"`                       // 주문 고유 아이디
+	Side            string        `json:"side"`                       // 주문 방향 (bid/ask)
+	OrdType         string        `json:"ord_type"`                   // 주문 타입 (limit/price/market 등)
+	Price           string        `json:"price"`                      // 주문 가격
+	State           string        `json:"state"`                      // 주문 상태 (done/cancel 등)
+	Market          string        `json:"market"`                     // 마켓 정보
+	CreatedAt       string        `json:"created_at"`                 // 주문 생성 시간
+	Volume          string        `json:"volume,omitempty"`           // 주문량 (옵션)
+	RemainingVolume string        `json:"remaining_volume,omitempty"` // 남은 주문량 (옵션)
+	ReservedFee     string        `json:"reserved_fee"`               // 예약된 수수료
+	RemainingFee    string        `json:"remaining_fee"`              // 남은 수수료
+	PaidFee         string        `json:"paid_fee"`                   // 지불된 수수료
+	Locked          string        `json:"locked"`                     // 거래에 사용 중인 비용
+	ExecutedVolume  string        `json:"executed_volume"`            // 체결된 양
+	ExecutedFunds   string        `json:"executed_funds"`             // 체결된 총 금액
+	TradesCount     int           `json:"trades_count"`               // 거래 횟수
+	Trades          []TradeDetail `json:"trades,omitempty"`           // 거래 상세 정보 배열 (옵션)
+}
+
+type TradeDetail struct {
+	Market    string `json:"market"`     // 마켓 정보
+	UUID      string `json:"uuid"`       // 거래의 고유 아이디
+	Price     string `json:"price"`      // 거래 가격
+	Volume    string `json:"volume"`     // 거래량
+	Funds     string `json:"funds"`      // 총 자금
+	Trend     string `json:"trend"`      // 추세 (예: "up")
+	CreatedAt string `json:"created_at"` // 거래 생성 시간
+	Side      string `json:"side"`       // 거래 방향 (bid/ask)
+}
+
+type OrdersClosedGetResponses []OrdersClosedGetResponse
+
+// 종료된 주문 (Closed Order) 조회
+// market       마켓 ID (필수)                                    String
+// state        주문 상태                                         String
+//   - done : 전체 체결 완료
+//   - cancel : 주문 취소
+//   - 시장가 주문이 조회되지 않는 경우
+//   - 시장가 매수 주문은 체결 후 주문 상태가 cancel 또는 done이 될 수 있음.
+//   - 체결 후 남은 잔량이 있는 경우 잔량이 반환되며 cancel 처리됨.
+//   - 주문 잔량이 없이 딱 맞아떨어지게 체결된 경우 done 상태로 표시됨.
+//
+// start_time   조회 시작 시각 (주문 생성 시각 기준)               String (ISO-8601)
+//   - ISO-8601 포맷 필요 (예: 2024-03-13T00:00:00+09:00)
+//   - start_time, end_time이 정의되지 않으면 현재 시각 기준 최대 7일 전까지 조회 가능.
+//   - start_time만 정의 시, start_time부터 최대 7일 후까지 조회 가능.
+//
+// end_time     조회 종료 시각 (주문 생성 시각 기준)               String (ISO-8601)
+//   - end_time만 정의 시, end_time부터 최대 7일 전까지 조회 가능.
+//   - start_time과 end_time 모두 정의 시, 최대 7일 범위까지만 조회 가능.
+//
+// limit        요청 개수 (기본값: 100, 최대값: 1,000)             Number
+//   - 시간 범위 내 주문 개수가 1,000개를 초과하면 시간 범위를 나누어 조회 필요.
+//
+// order_by     정렬 방식                                         String
+//   - asc : 오름차순
+//   - desc : 내림차순 (기본값)
+//
+// https://docs.upbit.com/reference/%EC%A2%85%EB%A3%8C-%EC%A3%BC%EB%AC%B8-%EC%A1%B0%ED%9A%8C
+func OrdersClosedGet(ctx context.Context, market, state, startTime, endTime string, limit int32, orderBy string) (*OrdersClosedGetResponses, error) {
+	var validStateTypes = map[string]bool{"done": true, "cancel": true}
+	if state != "" && !validStateTypes[state] {
+		return nil, fmt.Errorf("invalid state type: %s", state)
+	}
+	var validOrderByTypes = map[string]bool{"asc": true, "desc": true}
+	if orderBy != "" && !validOrderByTypes[orderBy] {
+		return nil, fmt.Errorf("invalid state type: %s", orderBy)
+	}
+	if err := validateISO8601Format(startTime); err != nil {
+		return nil, err
+	}
+	if err := validateISO8601Format(endTime); err != nil {
+		return nil, err
+	}
+	if startTime != "" && endTime != "" {
+		isInDay, err := isWithin7Days(startTime, endTime)
+		if err != nil {
+			return nil, err
+		}
+		if !isInDay {
+			return nil, fmt.Errorf("startTime and endTime is over 7 days")
+		}
+	}
+	reqform := RequestForm{
+		QueryParams: make(map[string]interface{}),
+	}
+	if market != "" {
+		reqform.QueryParams["market"] = market
+	}
+	if state != "" {
+		reqform.QueryParams["state"] = state
+	}
+	if limit > 0 {
+		reqform.QueryParams["limit"] = limit
+	}
+	if orderBy != "" {
+		reqform.QueryParams["orderBy"] = orderBy
+	}
+	return commonAnyCaller(ctx, ordersClosedEndPoint, reqform, &OrdersClosedGetResponses{})
+}
