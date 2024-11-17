@@ -253,3 +253,30 @@ func validateTimeString(to string) error {
 	}
 	return nil
 }
+
+func validateISO8601Format(value string) error {
+	if value != "" {
+		_, err := time.Parse("2006-01-02T15:04:05Z07:00", value)
+		if err != nil {
+			return fmt.Errorf("error parsing time: %s", err.Error())
+		}
+		return nil
+	}
+	return nil
+}
+
+func isWithin7Days(time1, time2 string) (bool, error) {
+	t1, err1 := time.Parse("2006-01-02T15:04:05Z07:00", time1)
+	t2, err2 := time.Parse("2006-01-02T15:04:05Z07:00", time2)
+	if err1 != nil {
+		return false, fmt.Errorf("invalid format: %v", err1)
+	}
+	if err2 != nil {
+		return false, fmt.Errorf("invalid format: %v", err2)
+	}
+	duration := t1.Sub(t2)
+	if duration < 0 {
+		duration = -duration
+	}
+	return duration <= 7*24*time.Hour, nil
+}
