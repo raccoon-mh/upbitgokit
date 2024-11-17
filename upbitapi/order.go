@@ -166,100 +166,72 @@ func OrderUuidsGet(ctx context.Context, market string, uuid, identifier []string
 	return commonAnyCaller(ctx, orderUuidsEndPoint, reqform, &OrderUuidsGetResponses{})
 }
 
-type OrdersPostResponse struct {
-	Uuid            string `json:"uuid"`             // 주문의 고유 아이디
+type OrderOpenGetResponse struct {
+	UUID            string `json:"uuid"`             // 주문의 고유 아이디
 	Side            string `json:"side"`             // 주문 종류
-	OrdType         string `json:"ord_type"`         // 주문 방식
+	OrdType         string `json:"ord_type"`         // 주문 방식 (limit, price, market, best)
 	Price           string `json:"price"`            // 주문 당시 화폐 가격 (NumberString)
 	State           string `json:"state"`            // 주문 상태
-	Market          string `json:"market"`           // 마켓의 유일키
-	CreatedAt       string `json:"created_at"`       // 주문 생성 시간
+	Market          string `json:"market"`           // 마켓 ID
+	CreatedAt       string `json:"created_at"`       // 주문 생성 시간 (DateString)
 	Volume          string `json:"volume"`           // 사용자가 입력한 주문 양 (NumberString)
 	RemainingVolume string `json:"remaining_volume"` // 체결 후 남은 주문 양 (NumberString)
 	ReservedFee     string `json:"reserved_fee"`     // 수수료로 예약된 비용 (NumberString)
 	RemainingFee    string `json:"remaining_fee"`    // 남은 수수료 (NumberString)
 	PaidFee         string `json:"paid_fee"`         // 사용된 수수료 (NumberString)
-	Locked          string `json:"locked"`           // 거래에 사용중인 비용 (NumberString)
+	Locked          string `json:"locked"`           // 거래에 사용 중인 비용 (NumberString)
 	ExecutedVolume  string `json:"executed_volume"`  // 체결된 양 (NumberString)
-	TradesCount     int    `json:"trades_count"`     // 해당 주문에 걸린 체결 수
-	TimeInForce     string `json:"time_in_force"`    // IOC, FOK 설정
+	ExecutedFunds   string `json:"executed_funds"`   // 현재까지 체결된 금액 (NumberString)
+	TradesCount     int    `json:"trades_count"`     // 해당 주문에 걸린 체결 수 (Integer)
+	TimeInForce     string `json:"time_in_force"`    // IOC, FOK 설정 (ioc, fok)
 }
 
-// 주문하기
-// Request Parameters
-// Name          설명 타입
-// market *      마켓 ID (필수) String
-//   - 예: "KRW-BTC"
-//
-// side *        주문 종류 (필수) String
-//   - bid: 매수
-//   - ask: 매도
-//
-// volume *      주문량 (지정가, 시장가 매도 시 필수) NumberString
-// price *       주문 가격. (지정가, 시장가 매수 시 필수) NumberString
-//   - 예: KRW-BTC 마켓에서 1BTC당 1,000 KRW로 거래할 경우 값은 "1000"
-//   - 예: KRW-BTC 마켓에서 1BTC당 매도 1호가가 500 KRW인 경우,
-//     시장가 매수 시 값을 "1000"으로 세팅하면 2BTC 매수 가능 (수수료 영향 있음)
-//
-// ord_type *    주문 타입 (필수) String
-//   - limit: 지정가 주문
-//   - price: 시장가 주문 (매수)
-//   - market: 시장가 주문 (매도)
-//   - best: 최유리 주문 (time_in_force 설정 필수)
-//
-// identifier    조회용 사용자 지정 값 (선택) String (Uniq 값 사용)
-//   - 주문을 조회하기 위한 고유 값
-//   - 중복 값이 들어오면 오류 발생
-//
-// identifier 주의사항:
-// - 서비스에서 발급하는 UUID가 아닌, 사용자가 직접 발급하는 키 값이어야 함
-// - 중복된 값으로 요청 시 중복 오류 발생
-// - 매 요청 시 새로운 값을 생성해야 함
-//
-// time_in_force IOC, FOK 주문 설정 * String
-//   - ioc: Immediate or Cancel
-//   - fok: Fill or Kill
-//   - ord_type이 best 혹은 limit일 때만 지원
-//
-// https://docs.upbit.com/reference/%EC%A3%BC%EB%AC%B8%ED%95%98%EA%B8%B0
-func OrdersPost(ctx context.Context, market string, side string, volume float64, price int64, orderType, identifier, timeinforce string) (*OrdersPostResponse, error) {
-	if market == "" || side == "" || orderType == "" {
-		return nil, fmt.Errorf("missing require input")
-	}
-	if identifier == "" {
-		identifier = uuid.New().String()
-	}
+type OrderOpenGetResponses []OrderOpenGetResponse
 
-	var validBidTypes = map[string]bool{"bid": true, "ask": true}
-	if !validBidTypes[side] {
-		return nil, fmt.Errorf("invalid side type: %s", side)
+// 체결 대기 주문 (Open Order) 조회
+// market: 마켓 ID (String)
+// state: 주문 상태 (String)
+//   - "wait": 체결 대기 (기본값)
+//   - "watch": 예약주문 대기
+//
+// states: 주문 상태의 목록 (Array[String])
+//   - 기본값은 "wait"이며, "wait"와 "watch"를 함께 조회하려면 둘 다 지정해야 합니다.
+//   - state와 states는 동시에 사용할 수 없습니다. 둘 중 하나만 지정해야 합니다.
+//
+// page: 페이지 수 (Number, 기본값: 1)
+//   - 페이지 당 조회 건수는 limit 파라미터로 조절 가능
+//
+// limit: 요청 개수 (Number, 기본값: 100, 최대값: 100)
+// order_by: 정렬 방식 (String)
+//   - "asc": 오름차순
+//   - "desc": 내림차순 (기본값)
+//
+// https://docs.upbit.com/reference/%EB%8C%80%EA%B8%B0-%EC%A3%BC%EB%AC%B8-%EC%A1%B0%ED%9A%8C
+func OrderOpenGet(ctx context.Context, market, state string, page, limit int64, orderBy string) (*OrderOpenGetResponses, error) {
+	var validStateTypes = map[string]bool{"wait": true, "watch": true}
+	if state != "" && !validStateTypes[state] {
+		return nil, fmt.Errorf("invalid state type: %s", state)
 	}
-
-	var validOrderTypes = map[string]bool{"limit": true, "price": true, "market": true, "best": true}
-	var validtimeinforceTypes = map[string]bool{"ioc": true, "fok": true}
-	if !validOrderTypes[orderType] {
-		return nil, fmt.Errorf("invalid order type: %s", orderType)
-	} else if (orderType == "best" || orderType == "limit") && !validtimeinforceTypes[timeinforce] {
-		return nil, fmt.Errorf("invalid timeinforce type or missing: %s", timeinforce)
+	var validOrderByTypes = map[string]bool{"asc": true, "desc": true}
+	if orderBy != "" && !validOrderByTypes[orderBy] {
+		return nil, fmt.Errorf("invalid state type: %s", orderBy)
 	}
-
 	reqform := RequestForm{
-		RequestBody: make(map[string]interface{}),
+		QueryParams: map[string]interface{}{},
 	}
-	reqform.RequestBody["market"] = market
-	reqform.RequestBody["side"] = side
-	if volume != 0.0 {
-		reqform.RequestBody["volume"] = strconv.FormatFloat(volume, 'f', -1, 64)
+	if market != "" {
+		reqform.QueryParams["market"] = market
 	}
-	if price != 0 {
-		reqform.RequestBody["price"] = strconv.FormatInt(price, 10)
+	if page != 0 {
+		reqform.QueryParams["page"] = page
 	}
-	reqform.RequestBody["ord_type"] = orderType
-	reqform.RequestBody["identifier"] = identifier
-	if timeinforce != "" {
-		reqform.RequestBody["time_in_force"] = timeinforce
+	if limit != 0 {
+		reqform.QueryParams["limit"] = limit
 	}
-	return commonAnyCaller(ctx, ordersEndPoint, reqform, &OrdersPostResponse{})
+	if orderBy != "" {
+		reqform.QueryParams["order_by"] = orderBy
+	}
+	return commonAnyCaller(ctx, orderOpenEndPoint, reqform, &OrderOpenGetResponses{})
 }
 
 type OrdersClosedGetResponse struct {
@@ -362,4 +334,137 @@ func OrdersClosedGet(ctx context.Context, market, state, startTime, endTime stri
 		reqform.QueryParams["orderBy"] = orderBy
 	}
 	return commonAnyCaller(ctx, ordersClosedEndPoint, reqform, &OrdersClosedGetResponses{})
+}
+
+type OrderCancelDeleteRespnse struct {
+	UUID            string `json:"uuid"`             // 주문의 고유 아이디
+	Side            string `json:"side"`             // 주문 종류
+	OrdType         string `json:"ord_type"`         // 주문 방식
+	Price           string `json:"price"`            // 주문 당시 화폐 가격 (NumberString)
+	State           string `json:"state"`            // 주문 상태
+	Market          string `json:"market"`           // 마켓의 유일키
+	CreatedAt       string `json:"created_at"`       // 주문 생성 시간
+	Volume          string `json:"volume"`           // 사용자가 입력한 주문 양 (NumberString)
+	RemainingVolume string `json:"remaining_volume"` // 체결 후 남은 주문 양 (NumberString)
+	ReservedFee     string `json:"reserved_fee"`     // 수수료로 예약된 비용 (NumberString)
+	RemainingFee    string `json:"remaining_fee"`    // 남은 수수료 (NumberString)
+	PaidFee         string `json:"paid_fee"`         // 사용된 수수료 (NumberString)
+	Locked          string `json:"locked"`           // 거래에 사용 중인 비용 (NumberString)
+	ExecutedVolume  string `json:"executed_volume"`  // 체결된 양 (NumberString)
+	TradesCount     int    `json:"trades_count"`     // 해당 주문에 걸린 체결 수
+}
+
+// 주문 취소 접수
+// https://docs.upbit.com/reference/%EC%A3%BC%EB%AC%B8-%EC%B7%A8%EC%86%8C
+func OrderCancelDelete(ctx context.Context, uuid, identifier string) (*OrderCancelDeleteRespnse, error) {
+	if uuid == "" && identifier == "" || uuid != "" && identifier != "" {
+		return nil, fmt.Errorf("either uuid or identifier must be included and can not use both")
+
+	}
+	reqform := RequestForm{
+		QueryParams: make(map[string]interface{}),
+	}
+	if uuid != "" {
+		reqform.QueryParams["uuid"] = uuid
+	}
+	if identifier != "" {
+		reqform.QueryParams["identifier"] = identifier
+	}
+	return commonAnyCaller(ctx, orderCancelEndPoint, reqform, &OrderCancelDeleteRespnse{})
+}
+
+type OrdersPostResponse struct {
+	Uuid            string `json:"uuid"`             // 주문의 고유 아이디
+	Side            string `json:"side"`             // 주문 종류
+	OrdType         string `json:"ord_type"`         // 주문 방식
+	Price           string `json:"price"`            // 주문 당시 화폐 가격 (NumberString)
+	State           string `json:"state"`            // 주문 상태
+	Market          string `json:"market"`           // 마켓의 유일키
+	CreatedAt       string `json:"created_at"`       // 주문 생성 시간
+	Volume          string `json:"volume"`           // 사용자가 입력한 주문 양 (NumberString)
+	RemainingVolume string `json:"remaining_volume"` // 체결 후 남은 주문 양 (NumberString)
+	ReservedFee     string `json:"reserved_fee"`     // 수수료로 예약된 비용 (NumberString)
+	RemainingFee    string `json:"remaining_fee"`    // 남은 수수료 (NumberString)
+	PaidFee         string `json:"paid_fee"`         // 사용된 수수료 (NumberString)
+	Locked          string `json:"locked"`           // 거래에 사용중인 비용 (NumberString)
+	ExecutedVolume  string `json:"executed_volume"`  // 체결된 양 (NumberString)
+	TradesCount     int    `json:"trades_count"`     // 해당 주문에 걸린 체결 수
+	TimeInForce     string `json:"time_in_force"`    // IOC, FOK 설정
+}
+
+// 주문하기
+// Request Parameters
+// Name          설명 타입
+// market *      마켓 ID (필수) String
+//   - 예: "KRW-BTC"
+//
+// side *        주문 종류 (필수) String
+//   - bid: 매수
+//   - ask: 매도
+//
+// volume *      주문량 (지정가, 시장가 매도 시 필수) NumberString
+// price *       주문 가격. (지정가, 시장가 매수 시 필수) NumberString
+//   - 예: KRW-BTC 마켓에서 1BTC당 1,000 KRW로 거래할 경우 값은 "1000"
+//   - 예: KRW-BTC 마켓에서 1BTC당 매도 1호가가 500 KRW인 경우,
+//     시장가 매수 시 값을 "1000"으로 세팅하면 2BTC 매수 가능 (수수료 영향 있음)
+//
+// ord_type *    주문 타입 (필수) String
+//   - limit: 지정가 주문
+//   - price: 시장가 주문 (매수)
+//   - market: 시장가 주문 (매도)
+//   - best: 최유리 주문 (time_in_force 설정 필수)
+//
+// identifier    조회용 사용자 지정 값 (선택) String (Uniq 값 사용)
+//   - 주문을 조회하기 위한 고유 값
+//   - 중복 값이 들어오면 오류 발생
+//
+// identifier 주의사항:
+// - 서비스에서 발급하는 UUID가 아닌, 사용자가 직접 발급하는 키 값이어야 함
+// - 중복된 값으로 요청 시 중복 오류 발생
+// - 매 요청 시 새로운 값을 생성해야 함
+//
+// time_in_force IOC, FOK 주문 설정 * String
+//   - ioc: Immediate or Cancel
+//   - fok: Fill or Kill
+//   - ord_type이 best 혹은 limit일 때만 지원
+//
+// https://docs.upbit.com/reference/%EC%A3%BC%EB%AC%B8%ED%95%98%EA%B8%B0
+func OrdersPost(ctx context.Context, market string, side string, volume float64, price int64, orderType, identifier, timeinforce string) (*OrdersPostResponse, error) {
+	if market == "" || side == "" || orderType == "" {
+		return nil, fmt.Errorf("missing require input")
+	}
+	if identifier == "" {
+		identifier = uuid.New().String()
+	}
+
+	var validBidTypes = map[string]bool{"bid": true, "ask": true}
+	if !validBidTypes[side] {
+		return nil, fmt.Errorf("invalid side type: %s", side)
+	}
+
+	var validOrderTypes = map[string]bool{"limit": true, "price": true, "market": true, "best": true}
+	var validtimeinforceTypes = map[string]bool{"ioc": true, "fok": true}
+	if !validOrderTypes[orderType] {
+		return nil, fmt.Errorf("invalid order type: %s", orderType)
+	} else if (orderType == "best" || orderType == "limit") && !validtimeinforceTypes[timeinforce] {
+		return nil, fmt.Errorf("invalid timeinforce type or missing: %s", timeinforce)
+	}
+
+	reqform := RequestForm{
+		RequestBody: make(map[string]interface{}),
+	}
+	reqform.RequestBody["market"] = market
+	reqform.RequestBody["side"] = side
+	if volume != 0.0 {
+		reqform.RequestBody["volume"] = strconv.FormatFloat(volume, 'f', -1, 64)
+	}
+	if price != 0 {
+		reqform.RequestBody["price"] = strconv.FormatInt(price, 10)
+	}
+	reqform.RequestBody["ord_type"] = orderType
+	reqform.RequestBody["identifier"] = identifier
+	if timeinforce != "" {
+		reqform.RequestBody["time_in_force"] = timeinforce
+	}
+	return commonAnyCaller(ctx, ordersEndPoint, reqform, &OrdersPostResponse{})
 }
