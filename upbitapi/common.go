@@ -46,8 +46,8 @@ func commonAnyCaller[AnyStruct any](ctx context.Context, mep string, rf RequestF
 		return restGet(ctx, u, rf, ast)
 	case http.MethodPost:
 		return restPost(ctx, u, rf, ast)
-	// case http.MethodDelete:
-	// 	return restDelete(ctx, u, rf, ast)
+	case http.MethodDelete:
+		return restDelete(ctx, u, rf, ast)
 	default:
 		return ast, fmt.Errorf("invalid method")
 	}
@@ -154,9 +154,58 @@ func restPost[AnyStruct any](ctx context.Context, ep string, rf RequestForm, ast
 	return ast, nil
 }
 
-// func restDelete[AnyStruct any](ctx context.Context, ep string, rf RequestForm, ast AnyStruct) (AnyStruct, error) {
+func restDelete[AnyStruct any](ctx context.Context, ep string, rf RequestForm, ast AnyStruct) (AnyStruct, error) {
+	if len(rf.PathParams) > 0 {
+		for key, value := range rf.PathParams {
+			placeholder := fmt.Sprintf("{%s}", key)
+			ep = strings.ReplaceAll(ep, placeholder, fmt.Sprintf("%v", value))
+		}
+	}
+	reqURL := serverHost + ep
 
-// }
+	jsonData, err := generateRequestBody(rf)
+	if err != nil {
+		return ast, fmt.Errorf("generateRequestBody Error : %s", err.Error())
+	}
+	jwtToken, err := generateSignedTokenWithRequestBody(ctx, rf)
+	if err != nil {
+		return ast, fmt.Errorf("generate Signed Token With RequestBody Error : %s", err.Error())
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, reqURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return ast, fmt.Errorf("newRequest Error : %s", err.Error())
+	}
+
+	req.Header.Set("Authorization", "Bearer "+jwtToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := commonClient.Do(req)
+	if err != nil {
+		log.Printf("commonClient Error : %s", err.Error())
+		return ast, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return ast, fmt.Errorf("io.ReadAll Error while %s : %s", resp.Status, err.Error())
+		}
+		return ast, fmt.Errorf("%s : %s", resp.Status, string(respBody))
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ast, fmt.Errorf("io.ReadAll Error : %s", err.Error())
+	}
+	err = json.Unmarshal(respBody, &ast)
+	if err != nil {
+		log.Println("err respBody is :", string(respBody))
+		return ast, fmt.Errorf("unmarshal Error : %s", err.Error())
+	}
+	return ast, nil
+}
 
 func generateQueryString(rf RequestForm) (string, string, error) {
 	query := url.Values{}
