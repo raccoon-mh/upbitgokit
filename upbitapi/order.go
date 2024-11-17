@@ -105,6 +105,67 @@ func OrderGet(ctx context.Context, uuid, identifier string) (*OrderGetResponse, 
 	return commonAnyCaller(ctx, orderEndPoint, reqform, &OrderGetResponse{})
 }
 
+type OrderUuidsGetResponse struct {
+	UUID            string `json:"uuid"`
+	Side            string `json:"side"`
+	OrdType         string `json:"ord_type"`
+	State           string `json:"state"`
+	Market          string `json:"market"`
+	CreatedAt       string `json:"created_at"`
+	Volume          string `json:"volume"`
+	RemainingVolume string `json:"remaining_volume"`
+	ReservedFee     string `json:"reserved_fee"`
+	RemainingFee    string `json:"remaining_fee"`
+	PaidFee         string `json:"paid_fee"`
+	Locked          string `json:"locked"`
+	ExecutedVolume  string `json:"executed_volume"`
+	ExecutedFunds   string `json:"executed_funds"`
+	TradesCount     int    `json:"trades_count"`
+	TimeInForce     string `json:"time_in_force"`
+}
+
+type OrderUuidsGetResponses []OrderUuidsGetResponse
+
+// id로 주문리스트 조회
+// market: 마켓 ID (String)
+//
+// uuids: 주문 UUID의 목록 (최대 100개) (Array[String])
+//
+//	uuids 또는 identifiers 중 한 가지 필드는 필수이며, 두 가지 필드를 함께 사용할 수 없습니다.
+//
+// identifiers: 주문 identifier의 목록 (최대 100개) (Array[String])
+//
+// order_by: 정렬 방식 (String)
+//   - "asc": 오름차순
+//   - "desc": 내림차순 (기본값)
+//
+// https://docs.upbit.com/reference/id%EB%A1%9C-%EC%A3%BC%EB%AC%B8-%EC%A1%B0%ED%9A%8C
+func OrderUuidsGet(ctx context.Context, market string, uuid, identifier []string, orderBy string) (*OrderUuidsGetResponses, error) {
+	if (len(uuid) == 0 && len(identifier) == 0) || (len(uuid) != 0 && len(identifier) != 0) {
+		return nil, fmt.Errorf("either uuid or identifier must be included and can not use both")
+	}
+	var validOrderByTypes = map[string]bool{"asc": true, "desc": true}
+	if orderBy != "" && !validOrderByTypes[orderBy] {
+		return nil, fmt.Errorf("invalid orderBy type: %s", orderBy)
+	}
+	reqform := RequestForm{
+		QueryParams: map[string]interface{}{},
+	}
+	if market != "" {
+		reqform.QueryParams["market"] = market
+	}
+	if len(uuid) != 0 {
+		reqform.QueryParams["uuid"] = uuid
+	}
+	if len(identifier) != 0 {
+		reqform.QueryParams["identifier"] = identifier
+	}
+	if orderBy != "" {
+		reqform.QueryParams["order_by"] = orderBy
+	}
+	return commonAnyCaller(ctx, orderUuidsEndPoint, reqform, &OrderUuidsGetResponses{})
+}
+
 type OrdersPostResponse struct {
 	Uuid            string `json:"uuid"`             // 주문의 고유 아이디
 	Side            string `json:"side"`             // 주문 종류
@@ -162,7 +223,7 @@ type OrdersPostResponse struct {
 //
 // https://docs.upbit.com/reference/%EC%A3%BC%EB%AC%B8%ED%95%98%EA%B8%B0
 func OrdersPost(ctx context.Context, market string, side string, volume float64, price int64, orderType, identifier, timeinforce string) (*OrdersPostResponse, error) {
-	if market == "" || side == "" || orderType == "" || price == 0 {
+	if market == "" || side == "" || orderType == "" {
 		return nil, fmt.Errorf("missing require input")
 	}
 	if identifier == "" {
@@ -190,13 +251,14 @@ func OrdersPost(ctx context.Context, market string, side string, volume float64,
 	if volume != 0.0 {
 		reqform.RequestBody["volume"] = strconv.FormatFloat(volume, 'f', -1, 64)
 	}
-	reqform.RequestBody["price"] = strconv.FormatInt(price, 10)
+	if price != 0 {
+		reqform.RequestBody["price"] = strconv.FormatInt(price, 10)
+	}
 	reqform.RequestBody["ord_type"] = orderType
 	reqform.RequestBody["identifier"] = identifier
 	if timeinforce != "" {
 		reqform.RequestBody["time_in_force"] = timeinforce
 	}
-
 	return commonAnyCaller(ctx, ordersEndPoint, reqform, &OrdersPostResponse{})
 }
 
