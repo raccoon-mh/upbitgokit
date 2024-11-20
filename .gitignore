@@ -1,2 +1,4 @@
 .env
-mytest.go
+cli/.env
+upbitgokitcli
+./examples.go

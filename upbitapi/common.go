@@ -15,8 +15,6 @@ import (
 	"strings"
 	"time"
 
-	cfg "upbitapi/config"
-
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 )
@@ -239,7 +237,7 @@ func generateQueryString(rf RequestForm) (string, string, error) {
 }
 
 func generateSignedTokenWithRequstQueryString(ctx context.Context, reqString string) (string, error) {
-	cred, err := cfg.GetCtxCredential(ctx)
+	cred, err := GetCtxCredential(ctx)
 	if err != nil {
 		log.Println("error while GetCtxCredentialcfg :", err.Error())
 		return "", err
@@ -277,7 +275,7 @@ func generateRequestBody(rf RequestForm) ([]byte, error) {
 }
 
 func generateSignedTokenWithRequestBody(ctx context.Context, rf RequestForm) (string, error) {
-	cred, err := cfg.GetCtxCredential(ctx)
+	cred, err := GetCtxCredential(ctx)
 	if err != nil {
 		log.Println("error while GetCtxCredential :", err.Error())
 		return "", err
