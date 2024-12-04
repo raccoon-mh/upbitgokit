@@ -239,8 +239,7 @@ func generateQueryString(rf RequestForm) (string, string, error) {
 func generateSignedTokenWithRequstQueryString(ctx context.Context, reqString string) (string, error) {
 	cred, err := GetCtxCredential(ctx)
 	if err != nil {
-		log.Println("error while GetCtxCredentialcfg :", err.Error())
-		return "", err
+		return "", fmt.Errorf("error while GetCtxCredentialcfg : %s", err.Error())
 	}
 	claims := jwt.MapClaims{
 		"access_key": cred.AccessKey,
